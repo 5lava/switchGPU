@@ -26,7 +26,7 @@ function wget () {
 function get_gfx () {
 	set -e
 	rm -f $bin/done-gfx
-	echo "Fetching gfxCardStatus into $bin ..." >> $logfile
+	echo "Fetching gfxCardStatus into $bin ..." >&2 >>$logfile
 	wget $tmp/gfxCardStatus.tgz "$url_gfx" -#
 	[[ -d $bin/gfxCardStatus.app ]] && rm -rf $bin/gfxCardStatus.app
 	tar -C $bin -zxf $tmp/gfxCardStatus.tgz
@@ -42,7 +42,7 @@ function gpudetect () {
 	local i log pid
 	$bin/gfxCardStatus.app/Contents/MacOS/gfxCardStatus &> $logs/gfx.txt &
 	pid=$!
-	echo "Detecting GPUs ..." >> $logfile
+	echo "Detecting GPUs ..." >&2 >>$logfile
 	for ((i=0;i<10;i++)); do
 		sleep 1
 		log=$(<$logs/gfx.txt)
@@ -55,7 +55,7 @@ function gpudetect () {
 			local IFS=$'\n\t '
 			if [[ ${#log[*]} -lt 2 ]]; then
 				silentkill $pid
-				echo "Only one GPU detected. Nothing to switch. Exiting ..." 2>> $logfile
+				echo "Only one GPU detected. Nothing to switch. Exiting ..." >&2 >>$logfile
 				return 15
 			else
 				silentkill $pid
@@ -64,7 +64,7 @@ function gpudetect () {
 		fi
 	done
 	silentkill $pid
-	echo "Timeout waiting for gfxCardStatus." 2>> $logfile
+	echo "Timeout waiting for gfxCardStatus." >&2 >>$logfile
 	return 16
 }
 
@@ -83,11 +83,11 @@ function gpuswitch () {
 	check_gfx
 	gpudetect || return $?
 	local i j pid n=3 size gfxlog=$logs/gfx.txt
-	echo "Switching GPU to Integrated ..." >> $logfile
+	echo "Switching GPU to Integrated ..." >&2 >>$logfile
 	# Need to attempt 2-3 times due to a bug
 	# https://github.com/codykrieger/gfxCardStatus/issues/103
 	for ((i=1;i<=n;i++)); do
-		echo "Switching attempt $i/$n ..." >> $logfile
+		echo "Switching attempt $i/$n ..." >&2 >>$logfile
 		# It also doesn't exit, so we need to background it, monitor its log file, then kill it ... 
 		touch $gfxlog
 		$bin/gfxCardStatus.app/Contents/MacOS/gfxCardStatus --integrated &> $gfxlog &
@@ -99,14 +99,14 @@ function gpuswitch () {
 			[[ ${size[0]} = ${size[1]} ]] && break
 			size[0]=${size[1]}
 		done
-		[[ $j = 10 ]] && Timeout waiting for gfxCardStatus. GPU possibly not switched. >&2
+		[[ $j = 10 ]] && echo Timeout waiting for gfxCardStatus. GPU possibly not switched. >&2 >>$logfile
 		[ $i != $n ] && silentkill $pid
 	done
 	rm -f $gfxlog
-	printf "Done. GPU should now be switched to Integrated.\n------------------------\n" >> $logfile
+	printf "Done. GPU should now be switched to Integrated.\n------------------------\n" >&2 >>$logfile
 }
 
-echo "$(date)" >> $logfile
+echo "$(date)" >&2 >>$logfile
 killall gfxCardStatus 2>&1
 gpuswitch
 
